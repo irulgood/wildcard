@@ -3,18 +3,61 @@
 # Konfigurasi
 DOMAIN="rinjanihost.com"   # Ganti dengan domain Anda
 EMAIL="bryanhendery@gmail.com"  # Ganti dengan email Anda
-CERTBOT_PATH="/usr/bin/certbot"  # Path Certbot (ubah jika berbeda)
+CERTBOT_PATH="/usr/bin/certbot"  # Path Certbot
 CLOUDFLARE_CREDENTIALS="/etc/cloudflare.ini"  # Lokasi file kredensial Cloudflare
-OUTPUT_PATH="/etc/letsencrypt/live/$DOMAIN"
 
-# Fungsi untuk menginstal paket yang dibutuhkan
+# Fungsi untuk menginstal dependensi
 install_dependencies() {
     echo "Memperbarui daftar paket dan menginstal dependensi..."
     sudo apt update
     sudo apt install -y certbot python3-certbot-dns-cloudflare
 }
 
-# Cek apakah Certbot sudah terinstal
+# Fungsi untuk membuat file kredensial Cloudflare
+create_cloudflare_credentials() {
+    echo "Membuat file kredensial Cloudflare..."
+
+    # Pilih metode autentikasi
+    echo "Pilih metode autentikasi Cloudflare:"
+    echo "1. API Token (Direkomendasikan)"
+    echo "2. Global API Key"
+    read -p "Masukkan pilihan Anda (1/2): " METHOD
+
+    case $METHOD in
+        1)
+            read -p "Masukkan API Token Anda: " API_TOKEN
+            if [ -z "$API_TOKEN" ]; then
+                echo "Error: API Token tidak boleh kosong."
+                exit 1
+            fi
+            sudo bash -c "cat > $CLOUDFLARE_CREDENTIALS" <<EOL
+dns_cloudflare_api_token = $API_TOKEN
+EOL
+            ;;
+        2)
+            read -p "Masukkan email Cloudflare Anda: " CLOUDFLARE_EMAIL
+            read -p "Masukkan Global API Key Anda: " API_KEY
+            if [ -z "$CLOUDFLARE_EMAIL" ] || [ -z "$API_KEY" ]; then
+                echo "Error: Email dan API Key tidak boleh kosong."
+                exit 1
+            fi
+            sudo bash -c "cat > $CLOUDFLARE_CREDENTIALS" <<EOL
+dns_cloudflare_email = $CLOUDFLARE_EMAIL
+dns_cloudflare_api_key = $API_KEY
+EOL
+            ;;
+        *)
+            echo "Pilihan tidak valid. Keluar."
+            exit 1
+            ;;
+    esac
+
+    # Atur izin file kredensial
+    sudo chmod 600 $CLOUDFLARE_CREDENTIALS
+    echo "File kredensial Cloudflare berhasil dibuat di $CLOUDFLARE_CREDENTIALS"
+}
+
+# Periksa apakah Certbot sudah terinstal
 if ! [ -x "$(command -v $CERTBOT_PATH)" ]; then
     echo "Certbot tidak ditemukan. Memulai instalasi..."
     install_dependencies
@@ -22,27 +65,10 @@ else
     echo "Certbot sudah terinstal."
 fi
 
-# Membuat file kredensial Cloudflare jika belum ada
+# Periksa apakah file kredensial Cloudflare sudah ada
 if [ ! -f "$CLOUDFLARE_CREDENTIALS" ]; then
-    echo "File kredensial Cloudflare tidak ditemukan. Membuat file baru..."
-    
-    # Meminta API token dari pengguna
-    read -p "CVU8IyiQkeHSYBM9lLdr-Gb-7K0IyTPklawwu5H0: " API_TOKEN
-    
-    # Validasi input
-    if [ -z "$API_TOKEN" ]; then
-        echo "Error: API Token tidak boleh kosong."
-        exit 1
-    fi
-
-    # Membuat file kredensial
-    sudo bash -c "cat > $CLOUDFLARE_CREDENTIALS" <<EOL
-dns_cloudflare_api_token = $API_TOKEN
-EOL
-
-    # Memberikan izin akses minimal pada file kredensial
-    sudo chmod 600 $CLOUDFLARE_CREDENTIALS
-    echo "File kredensial Cloudflare berhasil dibuat di $CLOUDFLARE_CREDENTIALS"
+    echo "File kredensial Cloudflare tidak ditemukan."
+    create_cloudflare_credentials
 else
     echo "File kredensial Cloudflare ditemukan di $CLOUDFLARE_CREDENTIALS"
 fi
@@ -57,6 +83,7 @@ sudo $CERTBOT_PATH certonly --dns-cloudflare \
     -d "*.$DOMAIN" -d "$DOMAIN"
 
 # Cek apakah sertifikat berhasil diterbitkan
+OUTPUT_PATH="/etc/letsencrypt/live/$DOMAIN"
 if [ -d "$OUTPUT_PATH" ]; then
     echo "Sertifikat berhasil diterbitkan!"
     echo "Lokasi Sertifikat:"
