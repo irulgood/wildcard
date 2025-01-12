@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Konfigurasi
-DOMAIN="rinjanihost.com"   # Ganti dengan domain Anda
+DOMAIN="*.panel.rinjaniserver.my.id"   # Ganti dengan domain Anda
 EMAIL="bryanhendery@gmail.com"  # Ganti dengan email Anda
 CERTBOT_PATH="/usr/bin/certbot"  # Path Certbot
 CLOUDFLARE_CREDENTIALS="/etc/cloudflare.ini"  # Lokasi file kredensial Cloudflare
